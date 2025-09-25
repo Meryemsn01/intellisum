@@ -14,7 +14,9 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 let redisClient;
 
 (async () => {
-  redisClient = redis.createClient(); // Par défaut, se connecte à localhost:6379
+  redisClient = redis.createClient({
+  url: process.env.REDIS_URL
+    });
   redisClient.on("error", (error) => console.error(`Erreur du client Redis : ${error}`));
   await redisClient.connect();
   console.log('✅ Connexion à Redis réussie');
