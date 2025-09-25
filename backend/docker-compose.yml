@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # Service 1: Notre backend Node.js
+  backend:
+    build: . # Construit l'image à partir du Dockerfile dans le dossier actuel
+    container_name: intellisum-app
+    ports:
+      - "5001:5000" # Lie le port 5001 de notre PC au port 5000 de ce conteneur
+    env_file:
+      - .env # Injecte les variables d'environnement
+    depends_on:
+      - mongo # Ne démarre ce service qu'après le démarrage de mongo
+      - redis   # et de redis
+
+  # Service 2: La base de données MongoDB
+  mongo:
+    image: mongo:latest # Utilise l'image officielle de MongoDB
+    container_name: intellisum-mongo
+    volumes:
+      - mongo-data:/data/db # Permet de sauvegarder les données même si le conteneur s'arrête
+
+  # Service 3: Le cache Redis
+  redis:
+    image: redis:latest # Utilise l'image officielle de Redis
+    container_name: intellisum-redis
+
+volumes:
+  mongo-data:
