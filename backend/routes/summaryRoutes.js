@@ -1,23 +1,48 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const redis = require('redis'); // On importe la bibliothèque Redis
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// On importe nos nouveaux outils
 const { protect } = require('../middleware/authMiddleware');
 const Summary = require('../models/Summary');
 
 const router = express.Router();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ## ROUTE 1: Créer un nouveau résumé (PROTÉGÉE)
-// @route   POST /api/summaries/summarize
+// --- Configuration du client Redis ---
+let redisClient;
+
+(async () => {
+  redisClient = redis.createClient(); // Par défaut, se connecte à localhost:6379
+  redisClient.on("error", (error) => console.error(`Erreur du client Redis : ${error}`));
+  await redisClient.connect();
+  console.log('✅ Connexion à Redis réussie');
+})();
+// ---------------------------------------------
+
+// ROUTE 1: Créer un nouveau résumé (maintenant avec un cache)
 router.post('/summarize', protect, async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL manquante.' });
 
     try {
-        // --- 1. Scraping et appel à Gemini (ne change pas) ---
+        // --- On vérifie le cache d'abord ---
+        const cachedSummary = await redisClient.get(url);
+
+        if (cachedSummary) {
+            console.log('CACHE HIT: Résumé trouvé dans Redis !');
+            const summary = new Summary({
+                originalUrl: url,
+                content: cachedSummary,
+                user: req.user.id,
+            });
+            await summary.save();
+            return res.status(200).json(summary);
+        }
+        
+        console.log('CACHE MISS: Résumé non trouvé, on continue le processus...');
+        
         const { data } = await axios.get(url);
         const $ = cheerio.load(data);
         const selectors = ['#mw-content-text p', 'article p', 'main p'];
@@ -37,16 +62,18 @@ router.post('/summarize', protect, async (req, res) => {
         const response = await result.response;
         const summaryText = response.text();
 
-        // --- 2. Sauvegarde en base de données (NOUVEAU) ---
-        // Grâce au middleware "protect", req.user contient l'utilisateur connecté.
+        // --- On sauvegarde le nouveau résumé dans le cache ---
+        await redisClient.set(url, summaryText, { EX: 3600 }); // Expire dans 1h
+        console.log('Nouveau résumé sauvegardé dans Redis.');
+
         const summary = new Summary({
             originalUrl: url,
             content: summaryText,
-            user: req.user.id, // On lie ce résumé à l'ID de l'utilisateur connecté
+            user: req.user.id,
         });
         await summary.save();
 
-        res.status(201).json(summary); // On renvoie le résumé sauvegardé
+        res.status(201).json(summary);
 
     } catch (error) {
         console.error('Erreur dans /summarize:', error);
@@ -54,19 +81,14 @@ router.post('/summarize', protect, async (req, res) => {
     }
 });
 
-
-// ## ROUTE 2: Récupérer l'historique de l'utilisateur (PROTÉGÉE)
-// @route   GET /api/summaries
+// ROUTE 2: Récupérer l'historique (ne change pas)
 router.get('/', protect, async (req, res) => {
     try {
-        // On cherche tous les résumés dont le champ "user" correspond à l'ID de l'utilisateur connecté.
-        const summaries = await Summary.find({ user: req.user.id }).sort({ createdAt: -1 }); // Trié du plus récent au plus ancien
+        const summaries = await Summary.find({ user: req.user.id }).sort({ createdAt: -1 });
         res.json(summaries);
     } catch (error) {
-        console.error('Erreur dans GET /summaries:', error);
         res.status(500).json({ message: 'Erreur serveur.' });
     }
 });
-
 
 module.exports = router;
