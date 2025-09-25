@@ -1,6 +1,6 @@
 # Étape 1: L'image de base
 # On part d'une image officielle de Node.js (version 18, "alpine" pour la légèreté)
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Étape 2: Créer le répertoire de travail
 # On crée un dossier à l'intérieur du conteneur pour y mettre notre code
