@@ -14,12 +14,16 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 let redisClient;
 
 (async () => {
-  redisClient = redis.createClient({
-  url: process.env.REDIS_URL
+  try {
+    redisClient = redis.createClient({
+      url: process.env.REDIS_URL
     });
-  redisClient.on("error", (error) => console.error(`Erreur du client Redis : ${error}`));
-  await redisClient.connect();
-  console.log('✅ Connexion à Redis réussie');
+    redisClient.on("error", (error) => console.error(`Erreur du client Redis : ${error}`));
+    await redisClient.connect();
+    console.log('✅ Connexion à Redis réussie');
+  } catch (err) {
+    console.error('❌ Échec de la connexion à Redis:', err);
+  }
 })();
 // ---------------------------------------------
 
