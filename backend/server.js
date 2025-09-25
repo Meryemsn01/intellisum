@@ -4,13 +4,13 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const cheerio = require('cheerio');
-const { OpenAI } = require('openai');
+// NOUVELLE IMPORTATION pour Google AI
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 require('dotenv').config();
 
-// --- Configuration d'OpenAI ---
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// --- Configuration de Google AI (Gemini) ---
+// On récupère la nouvelle clé
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // --- Initialisation de l'application Express ---
 const app = express();
@@ -25,12 +25,9 @@ mongoose.connect(process.env.MONGODB_URI)
     .catch(err => console.error('❌ Erreur de connexion à MongoDB:', err));
 
 // --- Routes ---
-
-// Route de test
 app.get('/', (req, res) => {
     res.json({ message: 'Bienvenue sur l\'API IntelliSum !' });
 });
-
 
 
 
