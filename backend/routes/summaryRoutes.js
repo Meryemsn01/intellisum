@@ -48,11 +48,19 @@ router.post('/summarize', protect, async (req, res) => {
             return res.status(400).json({ error: "Impossible d'extraire le contenu." });
         }
 
-        // NOUVEL APPEL À L'API HUGGING FACE
-        console.log('Appel à l\'API Hugging Face...');
+        // NOUVELLE ÉTAPE : Nettoyage du texte
+        // On enlève les sauts de ligne multiples et les espaces en trop
+        const cleanText = articleText.replace(/(\r\n|\n|\r)/gm, " ").replace(/\s\s+/g, ' ').trim();
+        
+        console.log('Appel à l\'API Hugging Face avec le texte nettoyé...');
         const hfResponse = await hf.summarization({
-            model: 'facebook/bart-large-cnn', // Un modèle de résumé puissant, principalement pour l'anglais
-            inputs: articleText,
+            model: 'facebook/bart-large-cnn', // Le modèle le plus standard
+            inputs: cleanText, // On utilise le texte nettoyé
+            parameters: {
+                min_length: 40,
+                max_length: 200,
+                truncation: "only_first" // Coupe le texte s'il est trop long
+            }
         });
         const summaryText = hfResponse.summary_text;
         
